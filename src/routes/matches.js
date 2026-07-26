@@ -42,12 +42,14 @@ matchRouter.get('/', async (req, res) => {
 
 matchRouter.post('/', async (req, res) => {
   const parsed = createMatchSchema.safeParse(req.body);
-  const { data: { startTime, endTime, homeScore, awayScore } } = parsed;
 
-  if (!parsed.success) {
+    if (!parsed.success) {
     // handle validation error
     return res.status(400).json({ error: 'Invalid input', details: parsed.error });
   }
+  
+  const { data: { startTime, endTime, homeScore, awayScore } } = parsed;
+
 
   try {
     const [event] = await db.insert(matches).values({
