@@ -7,6 +7,8 @@ import { z } from 'zod';
 import { listMatchesQuerySchema } from '../validation/matches.js';
 import { desc } from 'drizzle-orm';
 
+const MAX_LIMIT = 100;
+
 
 export const matchRouter = Router();
 
