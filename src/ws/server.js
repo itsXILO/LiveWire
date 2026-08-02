@@ -1,4 +1,4 @@
-import { WebSocket } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
 
 //stringify and send a payload to a specific socket
 function sendJson(socket, payload) {
