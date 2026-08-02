@@ -5,3 +5,12 @@ function sendJson(socket, payload) {
 
   socket.send(JSON.stringify(payload));
 }
+
+function broadcast(wss, payload) {
+  for (const socket of wss.clients) {
+    if (socket.readyState !== WebSocket.OPEN) {
+      continue;
+    }
+    socket.send(JSON.stringify(payload));
+  }
+}
