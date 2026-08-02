@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_LIMIT } from '../constants.js';
 
 export const MATCH_STATUS = {
   SCHEDULED: 'scheduled',
@@ -7,7 +8,7 @@ export const MATCH_STATUS = {
 };
 
 export const listMatchesQuerySchema = z.object({
-  limit: z.coerce.number().int().positive().max(100).optional(),
+  limit: z.coerce.number().int().positive().max(MAX_LIMIT).optional(),
 });
 
 export const matchIdParamSchema = z.object({
