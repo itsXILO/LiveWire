@@ -1,8 +1,13 @@
 import express from 'express';
 import {matchRouter} from "./routes/matches.js";
+import http from 'http';
+
 
 const app = express();
-const port = 8000;
+const PORT = process.env.PORT || 8000;
+const HOST = process.env.HOST || '0.0.0.0';
+
+const server = http.createServer(app);
 
 app.use(express.json());
 
@@ -12,6 +17,6 @@ app.get('/', (req, res) => {
 
 app.use('/matches', matchRouter)
 
-app.listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}`);
+app.listen(PORT, () => {
+    console.log(`Server is running at http://localhost:${PORT}`);
 });
