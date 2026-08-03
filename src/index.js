@@ -2,7 +2,7 @@ import express from 'express';
 import {matchRouter} from "./routes/matches.js";
 import http from 'http';
 import { attachWebSocketServer } from './ws/server.js';
-import { securityMiddleware } from './middleware/security.js';
+import { securityMiddleware } from './arcjet.js';
 
 
 const app = express();
