@@ -2,6 +2,7 @@ import express from 'express';
 import {matchRouter} from "./routes/matches.js";
 import http from 'http';
 import { attachWebSocketServer } from './ws/server.js';
+import { securityMiddleware } from './middleware/security.js';
 
 
 const app = express();
@@ -16,7 +17,7 @@ app.get('/', (req, res) => {
 
 app.use(express.json());
 
-
+app.use(securityMiddleware());
 app.use('/matches', matchRouter)
 
 const { broadcastMatchCreated } = attachWebSocketServer(server);
