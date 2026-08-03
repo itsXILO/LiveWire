@@ -43,6 +43,7 @@ key: arcjetKey,
       console.error('Arcjet middleware error', e);
       return res.status(503).json({ error: 'Service Unavailable' });
     }
+    next();
   };
 }
 
