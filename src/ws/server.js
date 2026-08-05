@@ -1,9 +1,11 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { wsArcjet } from '../arcjet.js';
 
-
+// Map to keep track of subscribers for each match
 const matchSubscribers = new Map();
 
+
+//subscribe a socket to a match's subscribers
 function subscribe(matchId, socket) {
     if(!matchSubscribers.has(matchId)) {
         matchSubscribers.set(matchId, new Set());
@@ -12,6 +14,7 @@ function subscribe(matchId, socket) {
     matchSubscribers.get(matchId).add(socket);
 }
 
+//unsubscribe a socket from a match's subscribers
 function unsubscribe(matchId, socket) {
   const subscribers = matchSubscribers.get(matchId);
 
