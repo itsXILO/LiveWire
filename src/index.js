@@ -22,8 +22,9 @@ app.use(securityMiddleware());
 app.use('/matches', matchRouter)
 app.use('/matches/:id/commentary',commentaryRouter);
 
-const { broadcastMatchCreated } = attachWebSocketServer(server);
+const { broadcastMatchCreated, broadcastCommentary, shutdownWebSocketServer } = attachWebSocketServer(server);
 app.locals.broadcastMatchCreated = broadcastMatchCreated;
+app.locals.broadcastCommentary = broadcastCommentary;
 
 server.listen(PORT, HOST, () => {
     const baseUrl = HOST === '0.0.0.0' ? `http://localhost:${PORT}` : `http://${HOST}:${PORT}`;
@@ -31,3 +32,12 @@ server.listen(PORT, HOST, () => {
     console.log(`Server is running on ${baseUrl}`);
     console.log(`WebSocket Server is running on ${baseUrl.replace('http', 'ws')}/ws`);
 });
+
+function shutdown() {
+    shutdownWebSocketServer();
+    server.close(() => process.exit(0));
+    server.closeAllConnections();
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
