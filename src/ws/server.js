@@ -34,6 +34,14 @@ function cleanupSubscriptions(socket) {
   }
 }
 
+
+//stringify and send a payload to a specific socket
+function sendJson(socket, payload) {
+  if (socket.readyState !== WebSocket.OPEN) return;
+
+  socket.send(JSON.stringify(payload));
+}
+
 //broadcast a payload to all subscribers of a specific match
 function broadcastToMatch(matchId, payload) {
   const subscribers = matchSubscribers.get(matchId);
@@ -48,17 +56,8 @@ function broadcastToMatch(matchId, payload) {
 }
 
 
-
-//stringify and send a payload to a specific socket
-function sendJson(socket, payload) {
-  if (socket.readyState !== WebSocket.OPEN) return;
-
-  socket.send(JSON.stringify(payload));
-}
-
-
 //broadcast a payload to all connected sockets
-function broadcast(wss, payload) {
+function broadcastToAll(wss, payload) {
   for (const socket of wss.clients) {
     if (socket.readyState !== WebSocket.OPEN) {
       continue;
@@ -66,6 +65,25 @@ function broadcast(wss, payload) {
     socket.send(JSON.stringify(payload));
   }
 }
+
+//handle incoming messages from a socket
+function handleMessage(socket, data) {
+    let message;
+
+    try {
+        message = JSON.parse(data.toString());
+    } catch {
+        sendJson(socket, { type: 'error', message: 'Invalid JSON' });
+    }
+
+    if (message?.type === 'subscribe' && Number.isInteger(message.matchId)) {
+        subscribe(message.matchId, socket);
+        socket.subscriptions.add(message.matchId);
+        sendJson(socket, { type: 'subscribed', matchId: message.matchId });
+        return;
+    }
+}
+
 
 //attach a WebSocket server to an existing HTTP server
 export function attachWebSocketServer(server) {
@@ -97,8 +115,8 @@ export function attachWebSocketServer(server) {
   });
 
   function broadcastMatchCreated(match) {
-    broadcast(wss, { type: 'match_created', data: match });
+    broadcastToAll(wss, { type: 'match_created', data: match });
   }
 
-  return { broadcastMatchCreated }
+  return { broadcastMatchCreated, broadcastToMatch }
 }
