@@ -1,6 +1,29 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { wsArcjet } from '../arcjet.js';
 
+
+const matchSubscribers = new Map();
+
+function subscribe(matchId, socket) {
+    if(!matchSubscribers.has(matchId)) {
+        matchSubscribers.set(matchId, new Set());
+    }
+
+    matchSubscribers.get(matchId).add(socket);
+}
+
+function unsubscribe(matchId, socket) {
+  const subscribers = matchSubscribers.get(matchId);
+
+  if(!subscribers) return;
+
+  if(subscribers.size === 0) {
+    matchSubscribers.delete(matchId);
+  }
+}
+
+
+
 //stringify and send a payload to a specific socket
 function sendJson(socket, payload) {
   if (socket.readyState !== WebSocket.OPEN) return;
