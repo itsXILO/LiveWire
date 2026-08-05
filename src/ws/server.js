@@ -20,8 +20,17 @@ function unsubscribe(matchId, socket) {
 
   if(!subscribers) return;
 
+  subscribers.delete(socket);
+  
   if(subscribers.size === 0) {
     matchSubscribers.delete(matchId);
+  }
+}
+
+//cleanup all subscriptions for a socket when it disconnects
+function cleanupSubscriptions(socket) {
+  for (const matchId of socket.subscriptions) {
+    unsubscribe(matchId, socket);
   }
 }
 
