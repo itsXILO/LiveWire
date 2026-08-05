@@ -82,6 +82,13 @@ function handleMessage(socket, data) {
         sendJson(socket, { type: 'subscribed', matchId: message.matchId });
         return;
     }
+
+    if (message?.type === 'unsubscribe' && Number.isInteger(message.matchId)) {
+        unsubscribe(message.matchId, socket);
+        socket.subscriptions.delete(message.matchId);
+        sendJson(socket, { type: 'unsubscribed', matchId: message.matchId });
+        return;
+    }
 }
 
 
