@@ -21,7 +21,7 @@ function unsubscribe(matchId, socket) {
   if(!subscribers) return;
 
   subscribers.delete(socket);
-  
+
   if(subscribers.size === 0) {
     matchSubscribers.delete(matchId);
   }
@@ -32,6 +32,19 @@ function cleanupSubscriptions(socket) {
   for (const matchId of socket.subscriptions) {
     unsubscribe(matchId, socket);
   }
+}
+
+//broadcast a payload to all subscribers of a specific match
+function broadcastToMatch(matchId, payload) {
+  const subscribers = matchSubscribers.get(matchId);
+  if (!subscribers) return;
+
+  const message = JSON.stringify(payload);
+  subscribers.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
 }
 
 
