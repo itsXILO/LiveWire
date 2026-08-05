@@ -1,4 +1,4 @@
-import Agent from 'apminsightnode';
+import Agent from 'apminsight';
 Agent.config()
 
 import express from 'express';
