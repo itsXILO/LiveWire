@@ -146,7 +146,15 @@ export function attachWebSocketServer(server) {
             ws.ping();
         })}, 30000);
 
-    wss.on('close', () => clearInterval(interval));
+    function shutdownWebSocketServer() {
+        clearInterval(interval);
+
+        for (const client of wss.clients) {
+            client.terminate();
+        }
+
+        wss.close();
+    }
 
     function broadcastMatchCreated(match) {
         broadcastToAll(wss, { type: 'match_created', data: match });
@@ -156,5 +164,5 @@ export function attachWebSocketServer(server) {
         broadcastToMatch(matchId, { type: 'commentary', data: comment });
     }
 
-    return { broadcastMatchCreated, broadcastCommentary };
+    return { broadcastMatchCreated, broadcastCommentary, shutdownWebSocketServer };
 }
