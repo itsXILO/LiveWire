@@ -383,6 +383,7 @@ function cloneCommentaryEntries(entries, templateMatch, targetMatch) {
         [templateMatch.homeTeam, targetMatch.homeTeam],
         [templateMatch.awayTeam, targetMatch.awayTeam],
     ]);
+    const minuteOffset = Math.floor(Math.random() * 31);
 
     return entries.map((entry) => {
         const next = { ...entry, matchId: targetMatch.id };
@@ -390,6 +391,9 @@ function cloneCommentaryEntries(entries, templateMatch, targetMatch) {
             next.team = targetMatch.homeTeam;
         } else if (entry.team === templateMatch.awayTeam) {
             next.team = targetMatch.awayTeam;
+        }
+        if (Number.isFinite(next.minute)) {
+            next.minute = Math.max(0, next.minute + minuteOffset);
         }
         next.message = replaceTrailingTeam(entry.message, replacements);
         return next;
@@ -413,11 +417,16 @@ function expandFeedForMatches(feed, seedMatches) {
     }
 
     const matchById = new Map();
-    const templateBySport = new Map();
+    const templatesBySport = new Map();
+    const counters = new Map();
     for (const match of seedMatches) {
         matchById.set(match.id, match);
-        if (!templateBySport.has(match.sport) && byMatchId.has(match.id)) {
-            templateBySport.set(match.sport, match);
+        if (byMatchId.has(match.id)) {
+            if (!templatesBySport.has(match.sport)) {
+                templatesBySport.set(match.sport, []);
+                counters.set(match.sport, 0);
+            }
+            templatesBySport.get(match.sport).push(match);
         }
     }
 
@@ -426,10 +435,13 @@ function expandFeedForMatches(feed, seedMatches) {
         if (byMatchId.has(match.id)) {
             continue;
         }
-        const templateMatch = templateBySport.get(match.sport);
-        if (!templateMatch) {
+        const templates = templatesBySport.get(match.sport);
+        if (!templates || templates.length === 0) {
             continue;
         }
+        const index = counters.get(match.sport) % templates.length;
+        counters.set(match.sport, index + 1);
+        const templateMatch = templates[index];
         const templateEntries = byMatchId.get(templateMatch.id) || [];
         expanded.push(
             ...cloneCommentaryEntries(templateEntries, templateMatch, match),
@@ -511,6 +523,21 @@ function getMatchEntry(entry, matchMap) {
 function randomMatchDelay() {
     const range = NEW_MATCH_DELAY_MAX_MS - NEW_MATCH_DELAY_MIN_MS;
     return NEW_MATCH_DELAY_MIN_MS + Math.floor(Math.random() * (range + 1));
+}
+
+async function runWithConcurrency(items, limit, worker) {
+    let index = 0;
+
+    const run = async () => {
+        while (index < items.length) {
+            const current = index;
+            index += 1;
+            await worker(items[current], current);
+        }
+    };
+
+    const workers = Array.from({ length: Math.min(limit, items.length) }, run);
+    await Promise.all(workers);
 }
 
 // NOTE: Match status updates are not part of this codebase yet.
@@ -603,51 +630,26 @@ async function seed() {
     //   );
     // }
 
-    for (let i = 0; i < randomizedFeed.length; i += 1) {
-        const entry = randomizedFeed[i];
+    const SEED_CONCURRENCY = Number.parseInt(process.env.SEED_CONCURRENCY || "4", 10);
+
+    await runWithConcurrency(randomizedFeed, SEED_CONCURRENCY, async (entry) => {
         const target = getMatchEntry(entry, matchMap);
         if (!target) {
             console.warn(
                 "⚠️  Skipping entry: matchId missing or not found:",
                 entry.message,
             );
-            continue;
+            return;
         }
         const match = target.match;
 
         const row = await insertCommentary(match.id, entry);
         console.log(`📣 [Match ${match.id}] ${row.message}`);
 
-        // NOTE: Score updates are intentionally disabled in this codebase.
-        // const isCricket = String(match.sport).toLowerCase() === "cricket";
-        // const delta = isCricket
-        //   ? cricketScoreDelta(entry, match, target)
-        //   : (scoreDeltaFromEntry(entry, match) ?? fakeScoreDelta(target));
-        // if (delta) {
-        //   target.score.home += delta.home;
-        //   target.score.away += delta.away;
-        //   await updateMatchScore(match.id, target.score.home, target.score.away);
-        //   console.log(
-        //     `📊 [Match ${match.id}] Score updated: ${target.score.home}-${target.score.away}`,
-        //   );
-        // }
-
-        // NOTE: Match status updates are intentionally disabled in this codebase.
-        // if (Number.isInteger(entry.matchId)) {
-        //   const remaining = (remainingByMatchId.get(entry.matchId) || 1) - 1;
-        //   if (remaining <= 0) {
-        //     remainingByMatchId.delete(entry.matchId);
-        //     await endMatch(match.id);
-        //     console.log(`🏁 [Match ${match.id}] Match finished.`);
-        //   } else {
-        //     remainingByMatchId.set(entry.matchId, remaining);
-        //   }
-        // }
-
         if (DELAY_MS > 0) {
             await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
         }
-    }
+    });
 }
 
 seed().catch((err) => {

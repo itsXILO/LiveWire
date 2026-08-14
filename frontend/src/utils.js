@@ -71,3 +71,25 @@ export const SPORT_EMOJI = {
 export function sportEmoji(sport) {
   return SPORT_EMOJI[sport?.toLowerCase()] ?? SPORT_EMOJI.default;
 }
+
+export function cricketScoreFromComments(comments) {
+  const score = {};
+  for (const c of comments) {
+    const team = c.team;
+    if (!team) continue;
+    const s = score[team] || (score[team] = { runs: 0, wickets: 0 });
+    if (c.eventType === 'six') s.runs += 6;
+    else if (c.eventType === 'four' || c.eventType === 'boundary') s.runs += 4;
+    else if (c.eventType === 'run') s.runs += 1;
+    else if (c.eventType === 'wicket' && s.wickets < 10) s.wickets += 1;
+  }
+  return score;
+}
+
+export function teamScoreText(match, team, cricketScore) {
+  if (match.sport?.toLowerCase() === 'cricket') {
+    const s = cricketScore?.[team];
+    return s ? `${s.runs}/${s.wickets}` : '0/0';
+  }
+  return String(team === match.homeTeam ? (match.homeScore ?? 0) : (match.awayScore ?? 0));
+}

@@ -173,6 +173,38 @@ body {
   transform: translateY(-1px);
 }
 
+/* ---------- Sport filter ---------- */
+.sport-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.sport-btn {
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sport-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.sport-btn.active {
+  color: var(--text);
+  background: linear-gradient(90deg, rgba(79, 124, 255, 0.25), rgba(124, 79, 255, 0.25));
+  border-color: var(--accent);
+  box-shadow: 0 0 14px rgba(79, 124, 255, 0.25);
+}
+
 /* ---------- Match grid ---------- */
 .grid {
   display: grid;
@@ -442,7 +474,10 @@ body {
   border-radius: 999px;
   padding: 5px 12px;
   letter-spacing: 1px;
-  animation: pulse 2s ease-in-out infinite;
+}
+
+.sb-sport .chip-live .live-dot {
+  animation: none;
 }
 
 /* ---------- Feed ---------- */

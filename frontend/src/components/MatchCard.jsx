@@ -1,6 +1,6 @@
-import { matchStatus, formatClock, sportEmoji } from '../utils.js';
+import { matchStatus, formatClock, sportEmoji, teamScoreText } from '../utils.js';
 
-export default function MatchCard({ match, onSelect }) {
+export default function MatchCard({ match, score, onSelect }) {
   const status = matchStatus(match);
   const live = status === 'live';
 
@@ -28,11 +28,11 @@ export default function MatchCard({ match, onSelect }) {
       <div className="card-teams">
         <div className="team">
           <span className="team-name">{match.homeTeam}</span>
-          <span className="team-score">{match.homeScore ?? 0}</span>
+          <span className="team-score">{teamScoreText(match, match.homeTeam, score)}</span>
         </div>
         <div className="versus">vs</div>
         <div className="team">
-          <span className="team-score">{match.awayScore ?? 0}</span>
+          <span className="team-score">{teamScoreText(match, match.awayTeam, score)}</span>
           <span className="team-name">{match.awayTeam}</span>
         </div>
       </div>

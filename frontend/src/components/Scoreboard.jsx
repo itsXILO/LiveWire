@@ -1,9 +1,11 @@
-import { matchStatus, formatClock, sportEmoji } from '../utils.js';
+import { matchStatus, formatClock, sportEmoji, teamScoreText } from '../utils.js';
 
-export default function Scoreboard({ match, onBack }) {
+export default function Scoreboard({ match, score, onBack }) {
   const status = matchStatus(match);
   const live = status === 'live';
   const flashClass = live ? 'score-flash' : '';
+  const homeText = teamScoreText(match, match.homeTeam, score);
+  const awayText = teamScoreText(match, match.awayTeam, score);
 
   return (
     <section className="scoreboard">
@@ -26,8 +28,8 @@ export default function Scoreboard({ match, onBack }) {
         <div className="sb-teams">
           <div className="sb-team">
             <span className="sb-name">{match.homeTeam}</span>
-            <span key={match.homeScore} className={`sb-score ${flashClass}`}>
-              {match.homeScore ?? 0}
+            <span key={homeText} className={`sb-score ${flashClass}`}>
+              {homeText}
             </span>
           </div>
           <div className="sb-mid">
@@ -37,8 +39,8 @@ export default function Scoreboard({ match, onBack }) {
             </span>
           </div>
           <div className="sb-team">
-            <span className={`sb-score ${flashClass}`} key={match.awayScore}>
-              {match.awayScore ?? 0}
+            <span key={awayText} className={`sb-score ${flashClass}`}>
+              {awayText}
             </span>
             <span className="sb-name">{match.awayTeam}</span>
           </div>
