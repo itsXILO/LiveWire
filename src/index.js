@@ -23,7 +23,7 @@ app.use(express.json());
 
 app.use(securityMiddleware());
 app.use('/matches', matchRouter)
-app.use('/matches/:id/commentary',commentaryRouter);
+app.use('/matches', commentaryRouter);
 
 const { broadcastMatchCreated, broadcastCommentary, shutdownWebSocketServer } = attachWebSocketServer(server);
 app.locals.broadcastMatchCreated = broadcastMatchCreated;

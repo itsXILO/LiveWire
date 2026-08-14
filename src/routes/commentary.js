@@ -8,7 +8,7 @@ import { MAX_LIMIT } from '../constants.js';
 
 export const commentaryRouter = Router();
 
-commentaryRouter.get('/', async (req, res) => {
+commentaryRouter.get('/:id/commentary', async (req, res) => {
   const idParams = matchIdParamSchema.safeParse(req.params);
   const query = listCommentaryQuerySchema.safeParse(req.query);
 
@@ -46,7 +46,7 @@ commentaryRouter.get('/', async (req, res) => {
   }
 });
 
-commentaryRouter.post('/:id', async (req, res) => {
+commentaryRouter.post('/:id/commentary', async (req, res) => {
   const idParams = matchIdParamSchema.safeParse(req.params);
   const body = createCommentarySchema.safeParse(req.body);
 
