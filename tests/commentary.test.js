@@ -115,7 +115,7 @@ test('creating commentary broadcasts the commentary WebSocket event to subscribe
   };
   const commentRes = await request(
     'POST',
-    `/matches/${createdMatchId}/commentary/${createdMatchId}`,
+    `/matches/${createdMatchId}/commentary`,
     comment,
   );
   assert.equal(commentRes.status, 201, serverError);

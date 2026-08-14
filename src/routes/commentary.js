@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { db } from '../db/index.js';
-import { commentary } from '../db/schema.js';
+import { commentary, matches } from '../db/schema.js';
 import { createCommentarySchema, listCommentaryQuerySchema } from '../validation/commentary.js';
 import { matchIdParamSchema } from '../validation/matches.js';
 import { desc, eq } from 'drizzle-orm';
 import { MAX_LIMIT } from '../constants.js';
+import { applyScoreDelta, scoreFromEvent } from '../utils/score.js';
 
 export const commentaryRouter = Router();
 
@@ -94,9 +95,28 @@ commentaryRouter.post('/:id/commentary', async (req, res) => {
       })
       .returning();
 
-      if(res.app.locals.broadcastCommentary) {
+    const [matchRow] = await db
+      .select()
+      .from(matches)
+      .where(eq(matches.id, id));
+
+    if (matchRow) {
+      const delta = scoreFromEvent(matchRow.sport, result.team, result.eventType, matchRow);
+      await applyScoreDelta(db, matchRow.id, delta);
+
+      const [updatedMatch] = await db
+        .select()
+        .from(matches)
+        .where(eq(matches.id, id));
+
+      if (res.app.locals.broadcastCommentary) {
         res.app.locals.broadcastCommentary(result.matchId, result);
       }
+      if (res.app.locals.broadcastMatchUpdate) {
+        res.app.locals.broadcastMatchUpdate(updatedMatch.id, updatedMatch);
+      }
+    }
+
     res.status(201).json({ data: result });
   } catch (e) {
     res.status(500).json({

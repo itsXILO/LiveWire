@@ -7,14 +7,12 @@ import SportFilter from './components/SportFilter.jsx';
 import { useMatches } from './hooks/useMatches.js';
 import { useLiveSocket } from './hooks/useLiveSocket.js';
 import { fetchCommentary } from './api.js';
-import { cricketScoreFromComments } from './utils.js';
 
 export default function App() {
   const { matches, loading, error, reload, onMatchCreated } = useMatches();
   const [selected, setSelected] = useState(null);
   const [comments, setComments] = useState([]);
   const [sport, setSport] = useState('all');
-  const [matchScores, setMatchScores] = useState({});
 
   const selectedId = selected?.id ?? null;
 
@@ -25,7 +23,17 @@ export default function App() {
     });
   }, []);
 
-  const socketStatus = useLiveSocket({ matchId: selectedId, onCommentary, onMatchCreated });
+  const onMatchUpdated = useCallback((data) => {
+    setMatches((prev) => prev.map((m) => (m.id === data.id ? data : m)));
+    setSelected((prev) => (prev && prev.id === data.id ? data : prev));
+  }, []);
+
+  const socketStatus = useLiveSocket({
+    matchId: selectedId,
+    onCommentary,
+    onMatchCreated,
+    onMatchUpdated,
+  });
 
   useEffect(() => {
     if (selectedId == null) return;
@@ -40,14 +48,6 @@ export default function App() {
       active = false;
     };
   }, [selectedId]);
-
-  useEffect(() => {
-    if (selectedId == null) return;
-    const score = cricketScoreFromComments(comments);
-    if (Object.keys(score).length > 0) {
-      setMatchScores((prev) => ({ ...prev, [selectedId]: score }));
-    }
-  }, [comments, selectedId]);
 
   const selectMatch = useCallback((match) => setSelected(match), []);
   const backToMatches = useCallback(() => setSelected(null), []);
@@ -78,11 +78,7 @@ export default function App() {
       <main>
         {selected ? (
           <section className="view view-match">
-            <Scoreboard
-              match={selected}
-              score={matchScores[selectedId]}
-              onBack={backToMatches}
-            />
+            <Scoreboard match={selected} onBack={backToMatches} />
             <CommentaryFeed comments={comments} />
           </section>
         ) : (
@@ -101,12 +97,7 @@ export default function App() {
 
             <div className="grid">
               {filteredMatches.map((m) => (
-                <MatchCard
-                  key={m.id}
-                  match={m}
-                  score={matchScores[m.id]}
-                  onSelect={selectMatch}
-                />
+                <MatchCard key={m.id} match={m} onSelect={selectMatch} />
               ))}
             </div>
 

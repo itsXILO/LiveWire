@@ -3,15 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 15000;
 
-export function useLiveSocket({ matchId, onCommentary, onMatchCreated }) {
+export function useLiveSocket({ matchId, onCommentary, onMatchCreated, onMatchUpdated }) {
   const [status, setStatus] = useState('connecting');
   const wsRef = useRef(null);
   const retryRef = useRef(0);
   const matchIdRef = useRef(matchId);
-  const callbacksRef = useRef({ onCommentary, onMatchCreated });
+  const callbacksRef = useRef({ onCommentary, onMatchCreated, onMatchUpdated });
 
   matchIdRef.current = matchId;
-  callbacksRef.current = { onCommentary, onMatchCreated };
+  callbacksRef.current = { onCommentary, onMatchCreated, onMatchUpdated };
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +51,9 @@ export function useLiveSocket({ matchId, onCommentary, onMatchCreated }) {
             break;
           case 'match_created':
             callbacksRef.current.onMatchCreated?.(message.data);
+            break;
+          case 'match_updated':
+            callbacksRef.current.onMatchUpdated?.(message.data);
             break;
           default:
             break;

@@ -164,5 +164,9 @@ export function attachWebSocketServer(server) {
         broadcastToMatch(matchId, { type: 'commentary', data: comment });
     }
 
-    return { broadcastMatchCreated, broadcastCommentary, shutdownWebSocketServer };
+    function broadcastMatchUpdate(matchId, match) {
+        broadcastToMatch(matchId, { type: 'match_updated', data: match });
+    }
+
+    return { broadcastMatchCreated, broadcastCommentary, broadcastMatchUpdate, shutdownWebSocketServer };
 }

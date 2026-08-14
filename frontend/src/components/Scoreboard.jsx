@@ -1,11 +1,11 @@
 import { matchStatus, formatClock, sportEmoji, teamScoreText } from '../utils.js';
 
-export default function Scoreboard({ match, score, onBack }) {
+export default function Scoreboard({ match, onBack }) {
   const status = matchStatus(match);
   const live = status === 'live';
   const flashClass = live ? 'score-flash' : '';
-  const homeText = teamScoreText(match, match.homeTeam, score);
-  const awayText = teamScoreText(match, match.awayTeam, score);
+  const homeText = teamScoreText(match, match.homeTeam);
+  const awayText = teamScoreText(match, match.awayTeam);
 
   return (
     <section className="scoreboard">
