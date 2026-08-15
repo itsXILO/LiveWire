@@ -7,6 +7,7 @@ import SportFilter from './components/SportFilter.jsx';
 import { useMatches } from './hooks/useMatches.js';
 import { useLiveSocket } from './hooks/useLiveSocket.js';
 import { fetchCommentary } from './api.js';
+import { matchStatus } from './utils.js';
 
 export default function App() {
   const { matches, loading, error, reload, onMatchCreated } = useMatches();
@@ -35,13 +36,21 @@ export default function App() {
     onMatchUpdated,
   });
 
+  // Periodically re-render so status transitions (live -> finished) and the
+  // elapsed live clock update even when no new events arrive.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(id);
+  }, []);
+
   useEffect(() => {
     if (selectedId == null) return;
     let active = true;
     setComments([]);
     fetchCommentary(selectedId)
       .then((data) => {
-        if (active) setComments(data);
+        if (active) setComments([...data].sort((a, b) => a.id - b.id));
       })
       .catch(() => {});
     return () => {
@@ -52,10 +61,18 @@ export default function App() {
   const selectMatch = useCallback((match) => setSelected(match), []);
   const backToMatches = useCallback(() => setSelected(null), []);
 
-  const sortedMatches = useMemo(
-    () => [...matches].sort((a, b) => b.createdAt?.localeCompare?.(a.createdAt ?? '') ?? 0),
-    [matches],
-  );
+  const sortedMatches = useMemo(() => {
+    const byStartTime = (a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? '');
+    const byEndTime = (a, b) => (b.endTime ?? '').localeCompare(a.endTime ?? '');
+    const live = [];
+    const rest = [];
+    for (const m of matches) {
+      if (matchStatus(m, now) === 'live') live.push(m);
+      else rest.push(m);
+    }
+    return [...live.sort(byStartTime), ...rest.sort(byEndTime)];
+  }, [matches, now]);
+
 
   const sports = useMemo(() => {
     const set = new Set();
@@ -71,6 +88,19 @@ export default function App() {
     [sortedMatches, sport],
   );
 
+  const liveMatches = useMemo(
+    () => filteredMatches.filter((m) => matchStatus(m, now) === 'live'),
+    [filteredMatches, now],
+  );
+  const upcomingMatches = useMemo(
+    () => filteredMatches.filter((m) => matchStatus(m, now) === 'scheduled'),
+    [filteredMatches, now],
+  );
+  const pastMatches = useMemo(
+    () => filteredMatches.filter((m) => matchStatus(m, now) === 'finished'),
+    [filteredMatches, now],
+  );
+
   return (
     <div className="app">
       <Header connectionStatus={socketStatus} />
@@ -84,7 +114,7 @@ export default function App() {
         ) : (
           <section className="view view-matches">
             <div className="view-head">
-              <h2>Live matches</h2>
+              <h2>Live & past matches</h2>
               <button type="button" className="refresh-btn" onClick={reload}>
                 ↻ Refresh
               </button>
@@ -95,15 +125,40 @@ export default function App() {
             {loading && <div className="spinner" />}
             {error && <div className="error">⚠ {error}</div>}
 
+            {liveMatches.length > 0 && (
+              <div className="section-label">
+                <span className="section-dot" /> Live now
+              </div>
+            )}
             <div className="grid">
-              {filteredMatches.map((m) => (
+              {liveMatches.map((m) => (
+                <MatchCard key={m.id} match={m} onSelect={selectMatch} />
+              ))}
+            </div>
+
+            {upcomingMatches.length > 0 && (
+              <div className="section-label">
+                <span className="section-dot section-dot-upcoming" /> Upcoming
+              </div>
+            )}
+            <div className="grid">
+              {upcomingMatches.map((m) => (
+                <MatchCard key={m.id} match={m} onSelect={selectMatch} />
+              ))}
+            </div>
+
+            {pastMatches.length > 0 && (
+              <div className="section-label">Earlier</div>
+            )}
+            <div className="grid">
+              {pastMatches.map((m) => (
                 <MatchCard key={m.id} match={m} onSelect={selectMatch} />
               ))}
             </div>
 
             {!loading && !error && filteredMatches.length === 0 && (
               <div className="empty">
-                <p>No live matches{matches.length > 0 ? ` in ${sport}` : ''} right now.</p>
+                <p>No matches{matches.length > 0 ? ` in ${sport}` : ''} yet.</p>
               </div>
             )}
           </section>

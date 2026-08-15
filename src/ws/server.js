@@ -164,8 +164,10 @@ export function attachWebSocketServer(server) {
         broadcastToMatch(matchId, { type: 'commentary', data: comment });
     }
 
+    // Broadcast score/status changes to every connected client so the match
+    // list (not just the open match detail) receives live updates.
     function broadcastMatchUpdate(matchId, match) {
-        broadcastToMatch(matchId, { type: 'match_updated', data: match });
+        broadcastToAll(wss, { type: 'match_updated', data: match });
     }
 
     return { broadcastMatchCreated, broadcastCommentary, broadcastMatchUpdate, shutdownWebSocketServer };

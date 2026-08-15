@@ -71,6 +71,7 @@ async function pushSchema() {
     await db.execute(sql`
       CREATE TABLE matches (
         id serial PRIMARY KEY,
+        external_id text UNIQUE,
         sport text NOT NULL,
         home_team text NOT NULL,
         away_team text NOT NULL,
@@ -79,6 +80,10 @@ async function pushSchema() {
         end_time timestamp,
         home_score integer NOT NULL DEFAULT 0,
         away_score integer NOT NULL DEFAULT 0,
+        home_runs integer NOT NULL DEFAULT 0,
+        home_wickets integer NOT NULL DEFAULT 0,
+        away_runs integer NOT NULL DEFAULT 0,
+        away_wickets integer NOT NULL DEFAULT 0,
         created_at timestamp DEFAULT now() NOT NULL
       )
     `);

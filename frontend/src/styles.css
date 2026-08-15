@@ -205,6 +205,29 @@ body {
   box-shadow: 0 0 14px rgba(79, 124, 255, 0.25);
 }
 
+/* ---------- Section labels ---------- */
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  margin: 22px 0 14px;
+}
+
+.section-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 10px rgba(47, 227, 125, 0.8);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
 /* ---------- Match grid ---------- */
 .grid {
   display: grid;

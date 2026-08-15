@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db/index.js';
-import { matches } from '../db/schema.js';
+import { matches, commentary } from '../db/schema.js';
 import { createMatchSchema } from '../validation/matches.js';
 import { getMatchStatus } from '../utils/match-status.js';
 import { z } from 'zod';
@@ -40,6 +40,16 @@ matchRouter.get('/', async (req, res) => {
 
 
 
+
+matchRouter.delete('/', async (req, res) => {
+  try {
+    await db.delete(commentary);
+    await db.delete(matches);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to clear matches.' });
+  }
+});
 
 matchRouter.post('/', async (req, res) => {
   const parsed = createMatchSchema.safeParse(req.body);

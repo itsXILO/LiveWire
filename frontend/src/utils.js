@@ -1,4 +1,7 @@
 export function matchStatus(match, now = new Date()) {
+  if (match.status === 'live' || match.status === 'finished') {
+    return match.status;
+  }
   const start = new Date(match.startTime);
   const end = new Date(match.endTime);
 
@@ -20,15 +23,26 @@ export function timeUntil(start) {
   return `in ${h}h ${m}m`;
 }
 
-export function formatClock(start, end, status) {
+export function formatClock(start, end, status, now = Date.now()) {
   if (status === 'live') {
-    const elapsed = Math.max(0, Math.floor((Date.now() - new Date(start).getTime()) / 60000));
+    const elapsed = Math.max(0, Math.floor((now - new Date(start).getTime()) / 60000));
     return `LIVE ${elapsed}m`;
   }
   if (status === 'scheduled') {
     return new Date(start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
-  return 'Full Time';
+  const endedAgo = now - new Date(end).getTime();
+  if (!Number.isFinite(endedAgo) || endedAgo < 0) {
+    return 'Full Time';
+  }
+  if (endedAgo < 3600000) {
+    return `FT · ${Math.max(1, Math.round(endedAgo / 60000))}m ago`;
+  }
+  const hours = Math.floor(endedAgo / 3600000);
+  if (hours < 24) {
+    return `FT · ${hours}h ago`;
+  }
+  return `FT · ${Math.floor(hours / 24)}d ago`;
 }
 
 export const EVENT_STYLES = {

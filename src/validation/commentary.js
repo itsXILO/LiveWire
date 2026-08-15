@@ -7,6 +7,7 @@ export const listCommentaryQuerySchema = z.object({
 });
 
 export const createCommentarySchema = z.object({
+  minute: z.number().int().nonnegative().optional(),
   minutes: z.number().int().nonnegative().optional(),
   sequence: z.union([z.string(), z.number()]).optional(),
   period: z.string().optional(),
@@ -16,4 +17,8 @@ export const createCommentarySchema = z.object({
   message: z.string().min(1),
   metadata: z.record(z.string(), z.any()).optional(),
   tags: z.array(z.string()).optional(),
+});
+
+export const createCommentaryBatchSchema = z.object({
+  entries: z.array(createCommentarySchema).min(1).max(100),
 });
