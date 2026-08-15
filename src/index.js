@@ -59,6 +59,7 @@ async function runLiveFetch() {
         const result = await syncLiveMatches({
             broadcastMatchCreated,
             broadcastMatchUpdate,
+            broadcastCommentary,
         });
         if (result.total > 0) {
             console.log(`[live] ${result.total} games (${result.created} new, ${result.updated} updated)`);

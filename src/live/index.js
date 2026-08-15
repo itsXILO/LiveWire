@@ -2,10 +2,11 @@ import { db } from '../db/index.js';
 import { matches } from '../db/schema.js';
 import { eq, isNotNull } from 'drizzle-orm';
 import { fetchEspnScoreboards } from './espn.js';
+import { ensureMatchSummary } from './summary.js';
 
 // Upsert real matches from ESPN into the database and broadcast changes over
 // WebSocket so connected clients see live score updates.
-export async function syncLiveMatches({ broadcastMatchCreated, broadcastMatchUpdate, log = console } = {}) {
+export async function syncLiveMatches({ broadcastMatchCreated, broadcastMatchUpdate, broadcastCommentary, log = console } = {}) {
   const games = await fetchEspnScoreboards();
   if (games.length === 0) {
     return { created: 0, updated: 0, total: 0 };
@@ -35,6 +36,7 @@ export async function syncLiveMatches({ broadcastMatchCreated, broadcastMatchUpd
 
       created += 1;
       if (broadcastMatchCreated) broadcastMatchCreated(row);
+      await ensureMatchSummary(row, { broadcastCommentary });
       continue;
     }
 
@@ -47,6 +49,7 @@ export async function syncLiveMatches({ broadcastMatchCreated, broadcastMatchUpd
       new Date(current.startTime).getTime() !== game.startTime.getTime() ||
       new Date(current.endTime).getTime() !== game.endTime.getTime();
 
+    let match = current;
     if (changed) {
       const [row] = await db.update(matches)
         .set({
@@ -63,7 +66,13 @@ export async function syncLiveMatches({ broadcastMatchCreated, broadcastMatchUpd
         .returning();
 
       updated += 1;
+      match = row;
       if (broadcastMatchUpdate) broadcastMatchUpdate(row.id, row);
+    }
+
+    // Back-fill a highlights feed once a match reaches full time.
+    if (game.status === 'finished') {
+      await ensureMatchSummary(match, { broadcastCommentary });
     }
   }
 
