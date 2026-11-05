@@ -1,14 +1,18 @@
 import { db } from '../db/index.js';
 import { matches } from '../db/schema.js';
 import { eq, isNotNull } from 'drizzle-orm';
-import { fetchEspnScoreboards } from './espn.js';
+import { fetchEspnScoreboards, fetchEspnCricketScoreboard } from './espn.js';
 import { ensureMatchSummary } from './summary.js';
 
 // Upsert real matches from ESPN into the database and broadcast changes over
 // WebSocket so connected clients see live score updates.
 export async function syncLiveMatches({ broadcastMatchCreated, broadcastMatchUpdate, broadcastCommentary, log = console } = {}) {
-  const games = await fetchEspnScoreboards();
-  if (games.length === 0) {
+  const [games, cricketGames] = await Promise.all([
+    fetchEspnScoreboards(),
+    fetchEspnCricketScoreboard(),
+  ]);
+  const allGames = [...games, ...cricketGames];
+  if (allGames.length === 0) {
     return { created: 0, updated: 0, total: 0 };
   }
 
@@ -18,8 +22,9 @@ export async function syncLiveMatches({ broadcastMatchCreated, broadcastMatchUpd
   let created = 0;
   let updated = 0;
 
-  for (const game of games) {
+  for (const game of allGames) {
     const current = byExternalId.get(game.externalId);
+    const cricket = game.sport?.toLowerCase() === 'cricket';
 
     if (!current) {
       const [row] = await db.insert(matches).values({
@@ -30,13 +35,17 @@ export async function syncLiveMatches({ broadcastMatchCreated, broadcastMatchUpd
         status: game.status,
         startTime: game.startTime,
         endTime: game.endTime,
-        homeScore: game.homeScore,
-        awayScore: game.awayScore,
+        homeScore: game.homeScore ?? 0,
+        awayScore: game.awayScore ?? 0,
+        homeRuns: game.homeRuns ?? 0,
+        homeWickets: game.homeWickets ?? 0,
+        awayRuns: game.awayRuns ?? 0,
+        awayWickets: game.awayWickets ?? 0,
       }).returning();
 
       created += 1;
       if (broadcastMatchCreated) broadcastMatchCreated(row);
-      await ensureMatchSummary(row, { broadcastCommentary });
+      await ensureMatchSummary(row, { broadcastCommentary, result: game.result });
       continue;
     }
 
@@ -44,8 +53,12 @@ export async function syncLiveMatches({ broadcastMatchCreated, broadcastMatchUpd
       current.status !== game.status ||
       current.homeTeam !== game.homeTeam ||
       current.awayTeam !== game.awayTeam ||
-      current.homeScore !== game.homeScore ||
-      current.awayScore !== game.awayScore ||
+      current.homeScore !== (game.homeScore ?? 0) ||
+      current.awayScore !== (game.awayScore ?? 0) ||
+      (cricket && current.homeRuns !== (game.homeRuns ?? 0)) ||
+      (cricket && current.homeWickets !== (game.homeWickets ?? 0)) ||
+      (cricket && current.awayRuns !== (game.awayRuns ?? 0)) ||
+      (cricket && current.awayWickets !== (game.awayWickets ?? 0)) ||
       new Date(current.startTime).getTime() !== game.startTime.getTime() ||
       new Date(current.endTime).getTime() !== game.endTime.getTime();
 
@@ -59,8 +72,12 @@ export async function syncLiveMatches({ broadcastMatchCreated, broadcastMatchUpd
           status: game.status,
           startTime: game.startTime,
           endTime: game.endTime,
-          homeScore: game.homeScore,
-          awayScore: game.awayScore,
+          homeScore: game.homeScore ?? 0,
+          awayScore: game.awayScore ?? 0,
+          homeRuns: game.homeRuns ?? 0,
+          homeWickets: game.homeWickets ?? 0,
+          awayRuns: game.awayRuns ?? 0,
+          awayWickets: game.awayWickets ?? 0,
         })
         .where(eq(matches.externalId, game.externalId))
         .returning();
@@ -72,9 +89,9 @@ export async function syncLiveMatches({ broadcastMatchCreated, broadcastMatchUpd
 
     // Back-fill a highlights feed once a match reaches full time.
     if (game.status === 'finished') {
-      await ensureMatchSummary(match, { broadcastCommentary });
+      await ensureMatchSummary(match, { broadcastCommentary, result: game.result });
     }
   }
 
-  return { created, updated, total: games.length };
+  return { created, updated, total: allGames.length };
 }

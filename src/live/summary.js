@@ -3,8 +3,8 @@ import { commentary } from '../db/schema.js';
 import { eq, count } from 'drizzle-orm';
 
 // Finished matches ingested from ESPN have no play-by-play, so we generate a
-// short highlights feed from the final score: the goals/baskets that added up
-// to the result plus a full-time conclusion. Keeps the detail view from being
+// short highlights feed from the final score: the goals/baskets/runs that made
+// up the result plus a full-time conclusion. Keeps the detail view from being
 // an empty slate.
 
 function spreadMinutes(n, min, max) {
@@ -136,7 +136,107 @@ function basketballHighlights(match) {
   return entries;
 }
 
+function cricketHighlights(match) {
+  const { homeTeam: home, awayTeam: away, result } = match;
+  const entries = [
+    { period: 'Match', eventType: 'start', team: home, message: `The match begins: ${home} vs ${away}` },
+    ...cricketInnings(match, home),
+    ...cricketInnings(match, away),
+    {
+      period: 'Match',
+      eventType: 'default',
+      message: `Full Time: ${home} ${match.homeRuns}/${match.homeWickets} v ${away} ${match.awayRuns}/${match.awayWickets}`,
+    },
+    {
+      period: 'Match',
+      eventType: 'default',
+      message: result
+        ? `That's the match — ${result}`
+        : `That's the match — ${home} ${match.homeRuns}/${match.homeWickets} v ${away} ${match.awayRuns}/${match.awayWickets}`,
+    },
+  ];
+  return entries;
+}
+
+// Builds a plausible ball-by-ball innings for one team. Cricket innings scores
+// on ESPN arrive as a single runs/wickets pair, so we reconstruct the feed from
+// boundaries, singles and wickets that add up to that scorecard line.
+function cricketInnings(match, team) {
+  const isHome = team === match.homeTeam;
+  const runs = isHome ? match.homeRuns : match.awayRuns;
+  const wickets = isHome ? match.homeWickets : match.awayWickets;
+  const period = `${team} innings`;
+
+  const entries = [
+    { period, eventType: 'start', team, message: `${team} start their innings` },
+  ];
+  if (runs === 0 && wickets === 0) {
+    entries.push({ period, eventType: 'default', team, message: `${team} yet to bat` });
+    return entries;
+  }
+
+  // A sequence of scoring shots summing exactly to `runs`, capped at ~28 shots
+  // so long Test innings don't flood the feed (the remainder becomes a cluster).
+  const seq = [];
+  let remaining = runs;
+  while (remaining > 0) {
+    let value;
+    if (remaining >= 6 && Math.random() < 0.45) value = 6;
+    else if (remaining >= 4 && Math.random() < 0.6) value = 4;
+    else if (remaining >= 2 && Math.random() < 0.55) value = 2;
+    else value = 1;
+    if (value > remaining) value = remaining;
+    if (seq.length >= 28) {
+      seq.push({ value: remaining, cluster: true });
+      remaining = 0;
+      break;
+    }
+    seq.push({ value });
+    remaining -= value;
+  }
+
+  const wicketPositions = new Set();
+  let toPlace = wickets;
+  while (toPlace > 0 && seq.length > 0) {
+    const p = Math.floor(Math.random() * seq.length);
+    if (!wicketPositions.has(p)) {
+      wicketPositions.add(p);
+      toPlace -= 1;
+    }
+  }
+
+  let r = 0;
+  let w = 0;
+  for (let i = 0; i < seq.length; i += 1) {
+    if (wicketPositions.has(i)) {
+      w += 1;
+      entries.push({ period, eventType: 'wicket', team, message: `WICKET! ${team} (${team} ${r}/${w})` });
+    }
+    if (w >= 10) break;
+
+    const { value, cluster } = seq[i];
+    r += value;
+    if (value === 6) {
+      entries.push({ period, eventType: 'six', team, message: `SIX! ${team} (${team} ${r}/${w})` });
+    } else if (value === 4) {
+      entries.push({ period, eventType: 'four', team, message: `FOUR! ${team} (${team} ${r}/${w})` });
+    } else if (cluster) {
+      entries.push({ period, eventType: 'run', team, message: `${team} add ${value} runs (${team} ${r}/${w})` });
+    } else if (value >= 2) {
+      entries.push({ period, eventType: 'run', team, message: `${team} work ${value} runs (${team} ${r}/${w})` });
+    } else {
+      entries.push({ period, eventType: 'run', team, message: `Single: ${team} (${team} ${r}/${w})` });
+    }
+  }
+
+  entries.push({ period, eventType: 'default', team, message: `Innings break: ${team} ${runs}/${wickets}` });
+  return entries;
+}
+
 export function buildHighlights(match) {
+  if (match.sport?.toLowerCase() === 'cricket') {
+    return cricketHighlights(match);
+  }
   if (match.sport?.toLowerCase() === 'basketball') {
     return basketballHighlights(match);
   }
@@ -145,7 +245,7 @@ export function buildHighlights(match) {
 
 // Insert a highlights feed for a finished match if it doesn't have commentary
 // yet. Returns the inserted rows (empty when nothing was generated).
-export async function ensureMatchSummary(match, { broadcastCommentary } = {}) {
+export async function ensureMatchSummary(match, { broadcastCommentary, result } = {}) {
   if (match.status !== 'finished') return [];
 
   const [{ n }] = await db
@@ -154,8 +254,8 @@ export async function ensureMatchSummary(match, { broadcastCommentary } = {}) {
     .where(eq(commentary.matchId, match.id));
   if (n > 0) return [];
 
-  const entries = buildHighlights(match)
-    .sort((a, b) => a.minute - b.minute)
+  const entries = buildHighlights({ ...match, result })
+    .sort((a, b) => (a.minute ?? 0) - (b.minute ?? 0))
     .map((entry, i) => ({
       matchId: match.id,
       sequence: i + 1,

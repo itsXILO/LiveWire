@@ -1,10 +1,11 @@
 import { fetch as httpFetch } from 'undici';
 
-// Real live scores are ingested from ESPN's public (undocumented) scoreboard
-// endpoints. Cricket has no working scoreboard endpoint on ESPN right now, so
-// this covers football (soccer) and basketball. Note: this module must use
-// undici's fetch directly — src/db/index.js overrides globalThis.fetch to
-// route through Neon, which would hijack these HTTP calls.
+// Real live scores are ingested from ESPN's public (undocumented) endpoints.
+// Football (soccer) and basketball come from the v2 scoreboard API; cricket has
+// no working v2 scoreboard, so we use the personalized scoreboard header, which
+// lists every active series and its matches with live scores. Note: this module
+// must use undici's fetch directly — src/db/index.js overrides
+// globalThis.fetch to route through Neon, which would hijack these HTTP calls.
 const LEAGUES = [
   { espnSport: 'soccer', sport: 'football', league: 'eng.1' },
   { espnSport: 'soccer', sport: 'football', league: 'ger.1' },
@@ -85,6 +86,81 @@ export async function fetchEspnScoreboards({ signal } = {}) {
     } catch {
       // A league may be unreachable or the endpoint may change; skip it.
     }
+  }
+
+  return games;
+}
+
+const CRICKET_SCOREBOARD_URL =
+  'https://site.api.espn.com/apis/personalized/v2/scoreboard/header?sport=cricket&region=in&tz=Asia/Calcutta';
+
+// Cricket innings scores come back as strings like "198 & 51/2 (17 ov)",
+// "426", "54/7 (7.4/8 ov, target 52)". Reduce them to the current/latest
+// innings; a plain total is treated as a completed innings (10 wickets).
+function parseCricketScore(score) {
+  if (!score) return { runs: 0, wickets: 0 };
+  const last = String(score).split('&').pop();
+  const bare = last.replace(/\s*\(.*\)\s*$/, '').trim();
+  const [runs, wickets] = bare.split('/');
+  const runsNum = Number.parseInt(runs, 10) || 0;
+  if (wickets == null) return { runs: runsNum, wickets: 10 };
+  return { runs: runsNum, wickets: Number.parseInt(wickets, 10) || 0 };
+}
+
+export async function fetchEspnCricketScoreboard({ signal } = {}) {
+  const games = [];
+
+  try {
+    const res = await httpFetch(CRICKET_SCOREBOARD_URL, { signal });
+    if (!res.ok) return games;
+    const json = await res.json();
+
+    for (const league of json.sports?.[0]?.leagues ?? []) {
+      const leagueName = league.name ?? 'Cricket';
+      for (const event of league.events ?? []) {
+        const status = STATUS_MAP[event.status];
+        if (!status) continue;
+
+        const home = event.competitors?.find((c) => c.homeAway === 'home');
+        const away = event.competitors?.find((c) => c.homeAway === 'away');
+        if (!home || !away) continue;
+
+        const startTime = new Date(event.date);
+        if (Number.isNaN(startTime.getTime())) continue;
+
+        let endTime = new Date(event.endDate ?? event.date);
+        if (Number.isNaN(endTime.getTime())) {
+          endTime = new Date(startTime.getTime() + 6 * 3600000);
+        }
+        if (status === 'finished' && endTime.getTime() > Date.now()) {
+          endTime = new Date();
+        }
+
+        const homeScore = parseCricketScore(home.score);
+        const awayScore = parseCricketScore(away.score);
+
+        games.push({
+          externalId: `espn:cricket:${league.id}:${event.id}`,
+          sport: 'cricket',
+          league: String(league.id),
+          leagueName,
+          homeTeam: home.displayName ?? home.name ?? 'Unknown',
+          awayTeam: away.displayName ?? away.name ?? 'Unknown',
+          homeScore: 0,
+          awayScore: 0,
+          homeRuns: homeScore.runs,
+          homeWickets: homeScore.wickets,
+          awayRuns: awayScore.runs,
+          awayWickets: awayScore.wickets,
+          result: event.fullStatus?.longSummary ?? null,
+          startTime,
+          endTime,
+          status,
+        });
+      }
+    }
+  } catch {
+    // The cricket header may be unreachable; return what we collected.
   }
 
   return games;
